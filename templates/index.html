@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Добавление рамки</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<h1>Добавление рамки к изображению</h1>
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+<form action="/" method="post" enctype="multipart/form-data">
+  <fieldset>
+    <legend>Параметры</legend>
+    <p><label for="image">Изображение PNG или JPG:</label>
+      <input id="image" name="image" type="file" accept="image/png,image/jpeg" required></p>
+    <p><label for="border">Ширина рамки, пикселей:</label>
+      <input id="border" name="border" type="number" min="0" max="300" step="1" value="{{ border }}" required>
+      <label for="color">Цвет:</label>
+      <input id="color" name="color" type="color" value="{{ color }}" required></p>
+    <p class="captcha"><label for="answer">Проверка на робота:</label>
+      <img src="{{ captcha }}" width="165" height="48" alt="Пример для проверки">
+      <input id="answer" name="answer" inputmode="numeric" autocomplete="off" placeholder="Ответ" maxlength="2" aria-label="Ответ на пример" required></p>
+    <button type="submit">Добавить рамку</button>
+  </fieldset>
+</form>
+{% if result %}
+<h2 id="result-title">Результат</h2>
+<div class="images">
+  <figure><figcaption>Исходное изображение: {{ result.width }} × {{ result.height }}</figcaption>
+    <img src="{{ result.original }}" alt="Исходное изображение"></figure>
+  <figure><figcaption>С рамкой: {{ result.result_width }} × {{ result.result_height }}</figcaption>
+    <img src="{{ result.framed }}" alt="Изображение с рамкой"></figure>
+</div>
+<p><a href="{{ result.download }}">Скачать PNG</a></p>
+<h2>Распределение цветов исходного изображения</h2>
+<img class="histogram" src="{{ result.histogram }}" alt="График красного, зеленого и синего каналов исходного изображения">
+{% endif %}
+</body>
+</html>

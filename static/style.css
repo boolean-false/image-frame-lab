@@ -1,0 +1,22 @@
+body { max-width: 1000px; margin: 25px auto; padding: 0 15px; font-family: Arial, sans-serif; color: black; background: white; }
+h1 { font-size: 24px; }
+h2 { font-size: 20px; margin-top: 25px; }
+fieldset { padding: 10px 15px 15px; border: 1px solid #888; }
+form p { margin: 12px 0; }
+input, button { font-size: 15px; }
+input[type=number] { width: 75px; margin-right: 20px; }
+input[type=color] { width: 55px; height: 28px; vertical-align: middle; }
+.captcha { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.captcha input { width: 65px; }
+button { padding: 4px 10px; }
+.error { color: #a00000; }
+.images { display: flex; gap: 20px; }
+figure { margin: 0; width: 50%; }
+figcaption { margin-bottom: 10px; }
+figure img { max-width: 100%; max-height: 360px; object-fit: contain; }
+.histogram { max-width: 100%; }
+@media (max-width: 600px) {
+  body { margin-top: 15px; }
+  .images { display: block; }
+  figure { width: 100%; margin-bottom: 20px; }
+}
