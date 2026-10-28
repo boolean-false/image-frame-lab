@@ -3,6 +3,7 @@ services:
     name: image-frame-lab
     runtime: python
     plan: free
+    autoDeployTrigger: checksPass
     buildCommand: pip install -r requirements.txt
     startCommand: waitress-serve --listen=0.0.0.0:$PORT --threads=2 app:app
     envVars:
