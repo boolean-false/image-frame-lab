@@ -1,6 +1,7 @@
 """Лабораторная работа 1. Рамка для изображения, вариант 16."""
 import base64
-import hmac
+from datetime import datetime, timezone
+from hashlib import sha256
 import os
 import re
 import secrets
@@ -11,18 +12,27 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from threading import Lock
 
-from flask import Flask, render_template, request, session, send_file, url_for
+from flask import Flask, render_template, request, session, send_file, url_for, make_response
+from flask_session import Session
+from cachelib import FileSystemCache
 from PIL import Image, ImageDraw, ImageFont, ImageOps, UnidentifiedImageError
 from matplotlib.figure import Figure
 
 app = Flask(__name__)
+session_folder = TemporaryDirectory(prefix="frame-sessions-")
 app.config.update(
     SECRET_KEY=os.environ.get("SECRET_KEY") or secrets.token_hex(32),
     MAX_CONTENT_LENGTH=5 * 1024 * 1024,
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
     SESSION_COOKIE_SECURE=os.environ.get("COOKIE_SECURE") == "1",
+    SESSION_TYPE="cachelib",
+    SESSION_CACHELIB=FileSystemCache(session_folder.name, threshold=500),
+    SESSION_PERMANENT=False,
+    PERMANENT_SESSION_LIFETIME=1200,
 )
+Session(app)
+VERIFY_TOKEN = "TUSUR-ARTYUHOV-20261108-08262DF7"
 MAX_PIXELS = 4_000_000
 MAX_RESULT_PIXELS = 8_000_000
 plot_lock = Lock()
@@ -66,18 +76,34 @@ def png_url(image):
     return "data:image/png;base64," + base64.b64encode(stream.getvalue()).decode("ascii")
 
 
-def answer_hash(nonce, answer):
-    key = app.secret_key.encode("utf-8")
-    return hmac.new(key, (nonce + ":" + answer).encode(), "sha256").hexdigest()
+def normalize_html(html):
+    lines = [line.strip() for line in html.split("\n")]
+    lines = [line for line in lines if line]
+    lines = [re.sub(r"\s+", " ", line) for line in lines]
+    return "\n".join(lines)
+
+
+@app.get("/verify")
+def verify():
+    date = datetime.now(timezone.utc).strftime("%d.%m.%Y")
+    html = render_template("verify.html", token=VERIFY_TOKEN, date=date)
+    response = make_response(html)
+    normalized = normalize_html(html).encode("utf-8")
+    response.headers["X-Verify-Hash"] = sha256(normalized).hexdigest()
+    return response
 
 
 def make_captcha():
     """Новая проверка действует пять минут и только на одну попытку."""
     a, b = secrets.randbelow(8) + 2, secrets.randbelow(8) + 2
+    operation = secrets.choice(("+", "-"))
+    if operation == "-":
+        a, b = max(a, b), min(a, b)
+    answer = a + b if operation == "+" else a - b
     nonce = secrets.token_hex(12)
     session["captcha"] = {
         "nonce": nonce,
-        "hash": answer_hash(nonce, str(a + b)),
+        "answer": answer,
         "created": time.time(),
     }
     image = Image.new("RGB", (220, 64), "#f3f5f8")
@@ -86,7 +112,7 @@ def make_captcha():
         xy = [secrets.randbelow(220), secrets.randbelow(64),
               secrets.randbelow(220), secrets.randbelow(64)]
         draw.line(xy, fill="#c4cdd7", width=1)
-    draw.text((21, 14), f"{a} + {b} = ?", font=ImageFont.load_default(size=32), fill="#172b45")
+    draw.text((21, 14), f"{a} {operation} {b} = ?", font=ImageFont.load_default(size=32), fill="#172b45")
     return png_url(image)
 
 
@@ -105,7 +131,7 @@ def check_captcha(answer):
         used_captchas[data["nonce"]] = now
     if not re.fullmatch(r"[0-9]{1,2}", answer):
         return False
-    return hmac.compare_digest(data["hash"], answer_hash(data["nonce"], answer))
+    return int(answer) == data["answer"]
 
 
 def read_image(stream):

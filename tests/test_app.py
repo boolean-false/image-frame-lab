@@ -87,7 +87,7 @@ class PageTests(unittest.TestCase):
 
     def challenge(self):
         # В тесте получаем известный пример 6 + 6. В приложении числа случайные.
-        with patch("app.secrets.randbelow", return_value=4):
+        with patch("app.secrets.randbelow", return_value=4), patch("app.secrets.choice", return_value="+"):
             return self.client.get("/")
 
     def submit(self, **changes):
@@ -102,6 +102,40 @@ class PageTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("Добавление рамки к изображению", response.get_data(as_text=True))
         self.assertIn("no-store", response.headers["Cache-Control"])
+
+    def test_answer_stored_on_server(self):
+        self.challenge()
+        with self.client.session_transaction() as session:
+            self.assertEqual(session["captcha"]["answer"], 12)
+            sid = session.sid
+        self.assertEqual(self.client.get_cookie("session").value, sid)
+
+    def test_subtraction(self):
+        with patch("app.secrets.randbelow", side_effect=[1, 6] + [0] * 32), \
+                patch("app.secrets.choice", return_value="-"):
+            self.client.get("/")
+        with self.client.session_transaction() as session:
+            self.assertEqual(session["captcha"]["answer"], 5)
+        response = self.client.post("/", data={"answer": "5", "border": "0", "color": "#000000",
+                                               "image": (image_file(), "sample.png")})
+        self.assertEqual(response.status_code, 200)
+
+    def test_verify(self):
+        from hashlib import sha256
+        from datetime import datetime, timezone
+        response = self.client.get("/verify")
+        html = response.get_data(as_text=True)
+        lines = [re.sub(r"\s+", " ", line.strip()) for line in html.split("\n") if line.strip()]
+        expected = sha256("\n".join(lines).encode("utf-8")).hexdigest()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.mimetype, "text/html")
+        self.assertEqual(response.headers["X-Verify-Hash"], expected)
+        self.assertIn("TUSUR-ARTYUHOV-20261108-08262DF7", html)
+        self.assertIn(datetime.now(timezone.utc).strftime("%d.%m.%Y"), html)
+
+    def test_html_normalization(self):
+        self.assertEqual(module.normalize_html("  <p>A   B</p> \n\n\t<p>C\tD</p>\n"),
+                         "<p>A B</p>\n<p>C D</p>")
 
     def test_success_and_download(self):
         response = self.submit()
