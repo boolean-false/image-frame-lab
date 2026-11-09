@@ -130,7 +130,7 @@ class PageTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.mimetype, "text/html")
         self.assertEqual(response.headers["X-Verify-Hash"], expected)
-        self.assertIn("TUSUR-ARTYUHOV-20261108-08262DF7", html)
+        self.assertIn("TUSUR-ARTYUHOV-20261109-62A74198", html)
         self.assertIn(datetime.now(timezone.utc).strftime("%d.%m.%Y"), html)
 
     def test_html_normalization(self):
